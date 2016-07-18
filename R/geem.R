@@ -465,7 +465,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   results$coefnames <- colnames(X)
   results$niter <- count
   results$converged <- converged
-  results$naiv.var <- solve(beta.list$hess)*phi.new  ## call model-based
+  results$naiv.var <- solve(beta.list$hess)  ## call model-based
   results$var <- sandvar.list$sandvar
   results$call <- call
   results$corr <- cor.vec[cor.match]
