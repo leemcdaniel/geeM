@@ -479,6 +479,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   results$terms <- modterms
   results$y <- Y
   results$biggest.R.alpha <- biggest.R.alpha/phi
+  results$formula <- formula
   class(results) <- "geem"
   return(results)
 }
