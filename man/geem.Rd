@@ -10,10 +10,10 @@ Fit Generalized Estimating Equations
 Calculate coefficients and nuisance parameters using generalized estimating equations.  Link and Variance functions can be specified by the user.  Similar to \code{\link{glm}}.
 }
 \usage{
-geem(formula, id, waves=NULL, data = parent.frame(), family = gaussian,
+geem(formula, id, waves=NULL, data, family = gaussian,
  corstr = "independence", Mv = 1, weights = NULL, corr.mat = NULL, init.beta = NULL,
- init.alpha = NULL, init.phi = 1, scale.fix = FALSE, nodummy=FALSE, sandwich = TRUE, 
- maxit = 20, tol = 1e-05)
+ init.alpha = NULL, init.phi = 1, scale.fix = FALSE, nodummy=FALSE, sandwich = TRUE,
+ maxit = 20, tol = 1e-05, na.action=na.pass)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -33,7 +33,7 @@ an optional data frame containing the variables in the model.
 will determine the link and variance functions.  The argument can be one of three options: a \code{family} object, a character string, or a list of functions.
 
 For more information on how to use \code{family} objects, see \code{\link{family}}.
-  
+
 If the supplied argument is a character string, then the string should correspond to one of the family objects.
 
 In order to define a link function, a list must be created with the components \code{(LinkFun, VarFun, InvLink, InvLinkDeriv)}, all of which are vectorized functions.  If the components in the list are not named as
@@ -76,6 +76,11 @@ maximum number of iterations.
   \item{tol}{
 tolerance in calculation of coefficients.
 }
+
+  \item{na.action}{
+The function used to handle missing data. Currently only accepts na.pass
+}
+
 }
 \details{
 Users may specify functions for link and variance functions, but the functions must be vectorized functions.  See \code{\link{Vectorize}} for an easy way to vectorize functions.  \code{Vectorize} should be used sparingly, however, as it can lead to fairly slow function calls.  Care must be taken to ensure that convergence is possible with non-standard functions.
@@ -113,7 +118,7 @@ generatedata <- function(beta,alpha,gamma,X,T,n)  {
      for (i in 1:n)  {
         for (t in 2:T)  {
            innovation.mean <- mean.vec[t] - alpha*(sqrt(mean.vec[t]*mean.vec[t-1]))
-           I <- rnbinom(1,mu= innovation.mean,size= innovation.mean/gamma)           
+           I <- rnbinom(1,mu= innovation.mean,size= innovation.mean/gamma)
            first.shape <- alpha*sqrt(mean.vec[t]*mean.vec[t-1])/gamma
            second.shape <- mean.vec[t-1]/gamma - first.shape
            u <- rbeta(1,shape1 = first.shape,shape2=second.shape)
@@ -129,7 +134,7 @@ generatedata <- function(beta,alpha,gamma,X,T,n)  {
 
 X <- cbind(rep(1,5),c(-.5,-.25,0,.25,.5))
 testdat <- generatedata(beta=c(1,.5),alpha=.2,gamma=.5,X=X,T=5,n=3000)
-far1 <- geem(count~ time, id=subject ,data = testdat, family=poisson, 
+far1 <- geem(count~ time, id=subject ,data = testdat, family=poisson,
 	corstr="ar1")
 
 ### Ohio respiratory data from geepack
@@ -137,13 +142,13 @@ if(require(geepack)){
 	data("ohio", package="geepack")
 	resplogit <- geem(resp ~ age + smoke + age:smoke, id=id, data = ohio, family = binomial,
 	corstr = "m-dep" , Mv=1)
-  
+
   LinkFun <- function(arg){qcauchy(arg)}
   InvLink <- function(arg){pcauchy(arg)}
   InvLinkDeriv <- function(arg){dcauchy(arg)}
   VarFun <- function(arg){arg*(1-arg)}
   FunList <- list(LinkFun, VarFun, InvLink, InvLinkDeriv)
-  
+
   respcauchit <- geem(resp ~ age + smoke + age:smoke, id=id, data = ohio, family = FunList,
   corstr = "m-dep" , Mv=1)
 }
@@ -158,7 +163,7 @@ if(require(geepack)){
 		seiz.l$t <- ifelse(seiz.l$time == 0, 8, 2)
 		seiz.l$x <- ifelse(seiz.l$time == 0, 0, 1)
 
-	seiz <- geem(y~ x + trt + x:trt+ offset(log(t)), id=id,data = seiz.l, 
+	seiz <- geem(y~ x + trt + x:trt+ offset(log(t)), id=id,data = seiz.l,
 	family = poisson, corstr = "exchangeable")
 }
 
