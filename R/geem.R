@@ -1,5 +1,20 @@
-geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussian, corstr = "independence", Mv = 1, weights = NULL, corr.mat = NULL, init.beta=NULL, init.alpha=NULL, init.phi = 1, scale.fix=FALSE, nodummy=FALSE, sandwich=TRUE, maxit=20, tol=0.00001){
-  call <- match.call()
+geem <- function(formula, id, waves=NULL, data, family = gaussian, corstr = "independence", Mv = 1, weights = NULL, corr.mat = NULL, init.beta=NULL, init.alpha=NULL, init.phi = 1, scale.fix=FALSE, nodummy=FALSE, sandwich=TRUE, maxit=20, tol=0.00001, na.action=na.pass){
+    call <- match.call()
+
+    ## CE: Added these to get the right environment and model frame for the returning object
+    mf <- mc <- call
+    ## Maybe some extra arguments need to be added to the list below
+    ## I'm not sure if it will work with all the default R functions
+    mf <- mf[c(1L,  match(c("formula", "data", "id", "waves", "weights", "na.action"), names(mf), 0L))]
+    mf[[1L]] <- quote(stats::model.frame)
+    mf <- eval(mf, parent.frame())
+    Y <- model.response(mf)
+    mt <- attr(mf, "terms")
+
+    env <- environment(formula$terms)
+    if (is.null(env))
+        env <- parent.frame()
+
 
   famret <- getfam(family)
 
@@ -19,8 +34,12 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     stop("If scale.fix=TRUE, then init.phi must be supplied")
   }
 
-  ### First, get all the relevant elements from the arguments
-  dat <- model.frame(formula, data, na.action=na.pass)
+### First, get all the relevant elements from the arguments
+    ## CE: Removed the old code and replaced it with the appropriate updated object that we
+    ## computed above
+###    dat <- model.frame(formula, data, na.action=na.pass)
+###
+    dat <- mf
   nn <- dim(dat)[1]
 
   if(typeof(data) == "environment"){
@@ -158,13 +177,12 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   nn <- dim(dat)[1]
   K <- length(unique(id))
 
-
-  modterms <- terms(formula)
+  ## CE: Removed this as it is part of the mt object above
+  ## modterms <- terms(formula)
+  ## Y <- model.response(dat)
 
   X <- model.matrix(formula,dat)
-  Y <- model.response(dat)
   offset <- model.offset(dat)
-
   p <- dim(X)[2]
 
 
@@ -420,7 +438,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   }
   biggest <- which.max(len)[1]
   index <- sum(len[1:biggest])-len[biggest]
-  
+
   if(K == 1){
     biggest.R.alpha.inv <- R.alpha.inv
     if(cor.match == 6) {
@@ -476,7 +494,11 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   results$eta <- eta
   results$dropped <- dropid
   results$weights <- weights
-  results$terms <- modterms
+
+  ## CE: Added the terms from the initial call from model.frame so the environment is okay.
+  ## results$terms <- modterms
+  results$terms <- mt
+
   results$y <- Y
   results$biggest.R.alpha <- biggest.R.alpha/phi
   results$formula <- formula
@@ -511,7 +533,7 @@ updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.
     diag(StdErr) <- sqrt(1/VarFun(mu))
 
     hess <- crossprod(  StdErr %*% dInvLinkdEta %*%XX, R.alpha.inv %*% W %*% StdErr %*%dInvLinkdEta %*% XX)
-    esteq <- crossprod(   StdErr %*%dInvLinkdEta %*%XX , R.alpha.inv %*% W %*% StdErr %*% as.matrix(YY - mu)) 
+    esteq <- crossprod(   StdErr %*%dInvLinkdEta %*%XX , R.alpha.inv %*% W %*% StdErr %*% as.matrix(YY - mu))
 
     update <- solve(hess, esteq)
     if(max(abs(update)/beta.new) < 100*tol){break}
@@ -532,7 +554,7 @@ getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink,
   BlockDiag <- scoreDiag %*% BlockDiag %*% scoreDiag
 
   numsand <- as.matrix(crossprod(  StdErr %*% dInvLinkdEta %*% XX, R.alpha.inv %*% W %*% StdErr %*% BlockDiag %*% StdErr %*% W %*% R.alpha.inv %*%  StdErr %*% dInvLinkdEta %*% XX))
-  
+
   sandvar <- t(solve(hessMat, numsand))
   sandvar <- t(solve(t(hessMat), sandvar))
 

@@ -1,8 +1,8 @@
 getfam <- function(family){
   if(is.character(family)){
-    family <- get(family, mode = "function", envir = parent.frame(2))  
+    family <- get(family, mode = "function", envir = parent.frame(2))
   }
-  
+
   if(is.function(family)){
     family <- family()
     return(family)
@@ -22,9 +22,9 @@ getfam <- function(family){
       InvLink <- family[[3]]
       InvLinkDeriv <- family[[4]]
     }
-    
-    
-    FunList <- list("family"= famname, "LinkFun" = LinkFun, "VarFun" = VarFun, "InvLink" = InvLink, "InvLinkDeriv" = InvLinkDeriv) 
+
+
+    FunList <- list("family"= famname, "LinkFun" = LinkFun, "VarFun" = VarFun, "InvLink" = InvLink, "InvLinkDeriv" = InvLinkDeriv)
     return(FunList)
   }else{
     stop("problem with family argument: should be string, family object, or list of functions")
@@ -35,25 +35,25 @@ getfam <- function(family){
 ### each cluster size.  By default, each block is just a matrix filled with ones.
 getBlockDiag <- function(len, xvec=NULL){
   K <- length(len)
-  
+
   if(is.null(xvec)){
     xvec <- rep.int(1, sum(len^2))
   }
-  
+
   row.vec <- col.vec <- vector("numeric", sum(len^2))
   add.vec <- cumsum(len) - len
   if(K == 1){
     index <- c(0, sum(len^2))
   }else{
-    index <- c(0, (cumsum(len^2) -len^2)[2:K], sum(len^2)) 
+    index <- c(0, (cumsum(len^2) -len^2)[2:K], sum(len^2))
   }
-  
+
   for(i in 1:K){
     row.vec[(index[i] + 1):(index[i+1])] <- rep.int( (1:len[i]) + add.vec[i], len[i])
     col.vec[(index[i] + 1):(index[i+1])] <- rep( (1:len[i]) + add.vec[i], each=len[i])
-  }	
+  }
   BlockDiag <- sparseMatrix(i = row.vec, j = col.vec, x = xvec)
-  
+
   if(!is.null(xvec)){
     testsymm <- abs(sum(skewpart(BlockDiag)))
     if(testsymm != 0) {
@@ -77,8 +77,8 @@ checkFixedMat <- function(corr.mat, len){
   }
   if(determinant(corr.mat, logarithm=T)$modulus == -Inf){
     stop("supplied correlation matrix is not invertible.")
-  }	
-  return(corr.mat[1:max(len), 1:max(len)])	
+  }
+  return(corr.mat[1:max(len), 1:max(len)])
 }
 
 
@@ -109,7 +109,7 @@ coef.geem <- function(object, ...){
 }
 
 family.geem <- function(object,...){
-  
+
   return(object$FunList)
 }
 
@@ -132,15 +132,15 @@ dummyrows <- function(formula, dat, incomp, maxwave, wavespl, idspl){
   colnames(dat2) <- colnames(dat)
   dat2[missing==0,] <- dat
   dat2$id[missing > 0] <- missid[missing>0]
-  
+
   dat2$weights[missing > 0] <- 0
   dat2$waves[missing > 0] <- missing[missing > 0]
-  
+
   NAcols <- which(!is.element(names(dat2), c("id", "waves", "weights")))
   for(i in NAcols){
     dat2[missing>0, i] <- median(dat2[,i], na.rm=TRUE)
   }
-  
+
   retdat <- model.frame(formula, dat2, na.action=na.pass)
   retdat$id <- dat2$id
   retdat$weights <- dat2$weights
@@ -149,9 +149,37 @@ dummyrows <- function(formula, dat, incomp, maxwave, wavespl, idspl){
 }
 
 fillMatList <- function(real.sizes){
-  
+
 }
 
-model.matrix.geem <- function(object, ...){
-  return(model.matrix(object$formula, data=model.frame(object)))
+
+## CE: Removed this
+##
+##
+##model.matrix.geem <- function(object, ...){
+##    ##  return(model.matrix(object$formula, data=model.frame(object)))
+##    return(model.matrix(object, ...))
+##}
+
+
+model.frame.geem <- function (formula, ...) {
+    dots <- list(...)
+    nargs <- dots[match(c("data", "na.action", "subset"), names(dots),
+                        0)]
+    if (length(nargs) || is.null(formula$model)) {
+        fcall <- formula$call
+        m <- match(c("formula", "data", "subset", "weights", "id",
+                     "na.action", "offset"), names(fcall), 0L)
+        fcall <- fcall[c(1L, m)]
+        fcall$drop.unused.levels <- TRUE
+        fcall[[1L]] <- quote(stats::model.frame)
+        fcall$xlev <- formula$xlevels
+        fcall$formula <- terms(formula)
+        fcall[names(nargs)] <- nargs
+        env <- environment(formula$terms)
+        if (is.null(env))
+            env <- parent.frame()
+        eval(fcall, env)
+    }
+        else formula$model
 }

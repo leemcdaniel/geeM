@@ -1,7 +1,7 @@
 export(geem)
 import(Matrix)
 importFrom("methods", "as")
-importFrom("stats", "family", "gaussian", "median", 
+importFrom("stats", "family", "gaussian", "median",
 		"model.frame", "model.matrix", "model.offset",
 		"model.response", "na.pass", "pnorm", "terms")
 S3method(summary,geem)
@@ -12,4 +12,5 @@ S3method(print,summary.geem)
 S3method(predict,geem)
 S3method(coef, geem)
 S3method(family, geem)
-S3method(model.matrix, geem)
+
+S3method(model.frame, geem)
