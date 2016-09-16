@@ -35,16 +35,20 @@ updateAlphaEX <- function(YY, mu, VarFun, phi, id, len, StdErr, Resid, p, BlockD
   Resid <- StdErr %*% included %*% sqrtW %*% Diagonal(x = YY - mu)
   #print(mean(StdErr))
   #print(mean(YY-mu))
-
+  
+  
+  
   denom <- phi*(sum(triu(included %*% BlockDiag %*% included, k=1)) - p)
 
-  BlockDiag <- StdErr  %*%Diagonal(x = YY - mu) %*% BlockDiag %*% W %*% included %*% Diagonal(x = YY - mu)  %*% StdErr
-
+  #BlockDiag <- StdErr  %*%Diagonal(x = YY - mu) %*%  BlockDiag %*% W %*% included %*% Diagonal(x = YY - mu)  %*% StdErr
+  BlockDiag <- StdErr  %*%Diagonal(x = YY - mu) %*%  included %*% BlockDiag %*% W %*% Diagonal(x = YY - mu)  %*% StdErr
+    
   alpha <- sum(triu(BlockDiag, k=1))
 
+  
   #alpha <- sum(triu(Resid %*% BlockDiag %*% Resid, k=1))
   alpha.new <- alpha/denom
-
+  
   return(alpha.new)
 }
 

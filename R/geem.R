@@ -66,6 +66,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   dat$id <- id
   dat$weights <- weights
   dat$waves <- waves
+  
 
   if(!is.numeric(dat$waves) & !is.null(dat$waves)) stop("waves must be either an integer vector or NULL")
 
@@ -158,7 +159,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   nn <- dim(dat)[1]
   K <- length(unique(id))
 
-
+  
   modterms <- terms(formula)
 
   X <- model.matrix(formula,dat)
@@ -180,7 +181,8 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   interceptcol <- apply(X==1, 2, all)
 
   ## Basic check to see if link and variance functions make any kind of sense
-  linkOfMean <- LinkFun(mean(Y))
+  linkOfMean <- LinkFun(mean(Y[includedvec]))
+  
   if( any(is.infinite(linkOfMean) | is.nan(linkOfMean)) ){
     stop("Infinite or NaN in the link of the mean of responses.  Make sure link function makes sense for these data.")
   }
@@ -208,15 +210,13 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
   idspl <-ifelse(tmpwgt==0, NA, id)
   includedlen <- as.numeric(summary(split(Y, idspl, drop=T))[,1])
   len <- as.numeric(summary(split(Y, id, drop=T))[,1])
-
+  
   W <- Diagonal(x=weights)
   sqrtW <- sqrt(W)
   included <- Diagonal(x=(as.numeric(weights>0)))
 
   # Get vector of cluster sizes... remember this len variable
   #len <- as.numeric(summary(split(Y, id, drop=T))[,1])
-
-
 
   # Set the initial alpha value
   if(is.null(init.alpha)){
@@ -284,8 +284,13 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     n.vec <- vector("numeric", nn)
     index <- c(cumsum(len) - len, nn)
     for(i in 1:K){
-      n.vec[(index[i]+1) : index[i+1]] <-  rep(len[i], len[i])
+      n.vec[(index[i]+1) : index[i+1]] <-  rep(includedlen[i], len[i])
     }
+    #n.vec <- vector("numeric", nn)
+    #index <- c(cumsum(len) - len, nn)
+    #for(i in 1:K){
+    #  n.vec[(index[i]+1) : index[i+1]] <-  rep(len[i], len[i])
+    #}
   }else if(cor.match == 4){
     # M-DEPENDENT, check that M is not too large
     if(Mv >= max(len)){
@@ -361,8 +366,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
       phi <- updatePhi(Y, mu, VarFun, p, StdErr, included, includedlen, sqrtW)
     }
     phi.new <- phi
-
-
+    
 
     ## Calculate alpha, R(alpha)^(-1) / phi
     if(cor.match == 2){
@@ -372,6 +376,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     }else if(cor.match == 3){
       #EXCHANGEABLE
       alpha.new <- updateAlphaEX(Y, mu, VarFun, phi, id, len, StdErr, Resid, p, BlockDiag, included, includedlen, sqrtW)
+      #R.alpha.inv <- getAlphaInvEX(alpha.new, n.vec, BlockDiag)/phi
       R.alpha.inv <- getAlphaInvEX(alpha.new, n.vec, BlockDiag)/phi
     }else if(cor.match == 4){
       # M-DEPENDENT
@@ -411,8 +416,9 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     }
 
 
-    beta.list <- updateBeta(Y, X, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W)
+    beta.list <- updateBeta(Y, X, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W, included)
     beta <- beta.list$beta
+    
     phi.old <- phi
     if( max(abs((beta - beta.old)/(beta.old + .Machine$double.eps))) < tol ){converged <- T; stop <- T}
     if(count >= maxit){stop <- T}
@@ -440,7 +446,8 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
 
   eta <- as.vector(X %*% beta) + off
   if(sandwich){
-    sandvar.list <- getSandwich(Y, X, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink, VarFun, beta.list$hess, StdErr, dInvLinkdEta, BlockDiag, W)
+    sandvar.list <- getSandwich(Y, X, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink, VarFun, 
+                                beta.list$hess, StdErr, dInvLinkdEta, BlockDiag, W, included)
   }else{
     sandvar.list <- list()
     sandvar.list$sandvar <- "no sandwich"
@@ -492,6 +499,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
 ### Simple moment estimator of dispersion parameter
 updatePhi <- function(YY, mu, VarFun, p, StdErr, included, includedlen, sqrtW){
   nn <- sum(includedlen)
+  
   resid <- diag(StdErr %*% included %*% sqrtW %*% Diagonal(x = YY - mu))
   phi <- (1/(sum(included)-p))*crossprod(resid, resid)
 
@@ -500,7 +508,7 @@ updatePhi <- function(YY, mu, VarFun, p, StdErr, included, includedlen, sqrtW){
 
 ### Method to update coefficients.  Goes to a maximum of 10 iterations, or when
 ### rough convergence has been obtained.
-updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W){
+updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W, included){
   beta.new <- beta
   conv=F
   for(i in 1:10){
@@ -510,12 +518,16 @@ updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.
     mu <- InvLink(eta)
     diag(StdErr) <- sqrt(1/VarFun(mu))
 
-    hess <- crossprod(  StdErr %*% dInvLinkdEta %*%XX, R.alpha.inv %*% W %*% StdErr %*%dInvLinkdEta %*% XX)
-    esteq <- crossprod(   StdErr %*%dInvLinkdEta %*%XX , R.alpha.inv %*% W %*% StdErr %*% as.matrix(YY - mu)) 
-
+    #hess <- crossprod( StdErr %*% dInvLinkdEta %*%XX, R.alpha.inv %*% W %*% StdErr %*%dInvLinkdEta %*% XX)
+    #esteq <- crossprod( StdErr %*%dInvLinkdEta %*%XX , R.alpha.inv %*% W %*% StdErr %*% as.matrix(YY - mu))
+    
+    hess <- crossprod( StdErr %*% dInvLinkdEta %*%XX, included %*% R.alpha.inv  %*% W %*% StdErr %*%dInvLinkdEta %*% XX)
+    esteq <- crossprod( StdErr %*%dInvLinkdEta %*%XX , included %*% R.alpha.inv %*% W %*% StdErr %*% as.matrix(YY - mu))
+    
+    
     update <- solve(hess, esteq)
     if(max(abs(update)/beta.new) < 100*tol){break}
-
+    
     beta.new <- beta.new + as.vector(update)
 
   }
@@ -523,7 +535,7 @@ updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.
 }
 
 ### Calculate the sandiwch estimator as usual.
-getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink, VarFun, hessMat, StdErr, dInvLinkdEta, BlockDiag, W){
+getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink, VarFun, hessMat, StdErr, dInvLinkdEta, BlockDiag, W, included){
 
   diag(dInvLinkdEta) <- InvLinkDeriv(eta)
   mu <- InvLink(eta)
@@ -531,7 +543,8 @@ getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink,
   scoreDiag <- Diagonal(x= YY - mu)
   BlockDiag <- scoreDiag %*% BlockDiag %*% scoreDiag
 
-  numsand <- as.matrix(crossprod(  StdErr %*% dInvLinkdEta %*% XX, R.alpha.inv %*% W %*% StdErr %*% BlockDiag %*% StdErr %*% W %*% R.alpha.inv %*%  StdErr %*% dInvLinkdEta %*% XX))
+  #numsand <- as.matrix(crossprod(  StdErr %*% dInvLinkdEta %*% XX,  R.alpha.inv %*% W %*% StdErr %*% BlockDiag %*% StdErr %*% W %*% R.alpha.inv %*%  StdErr %*% dInvLinkdEta %*% XX))
+  numsand <- as.matrix(crossprod(  StdErr %*% dInvLinkdEta %*% XX, included %*% R.alpha.inv %*% W %*% StdErr %*% BlockDiag %*% StdErr %*% W %*% R.alpha.inv %*% included %*% StdErr %*% dInvLinkdEta %*% XX))
   
   sandvar <- t(solve(hessMat, numsand))
   sandvar <- t(solve(t(hessMat), sandvar))
