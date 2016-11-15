@@ -1,4 +1,8 @@
-geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussian, corstr = "independence", Mv = 1, weights = NULL, corr.mat = NULL, init.beta=NULL, init.alpha=NULL, init.phi = 1, scale.fix=FALSE, nodummy=FALSE, sandwich=TRUE, maxit=20, tol=0.00001){
+geem <- function(formula, id, waves=NULL, data = parent.frame(),
+                 family = gaussian, corstr = "independence", Mv = 1,
+                 weights = NULL, corr.mat = NULL, init.beta=NULL,
+                 init.alpha=NULL, init.phi = 1, scale.fix = FALSE, nodummy = FALSE,
+                 sandwich = TRUE, useP = TRUE, maxit = 20, tol = 0.00001){
   call <- match.call()
 
   famret <- getfam(family)
@@ -19,6 +23,8 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     stop("If scale.fix=TRUE, then init.phi must be supplied")
   }
 
+  useP <- as.numeric(useP)
+  
   ### First, get all the relevant elements from the arguments
   dat <- model.frame(formula, data, na.action=na.pass)
   nn <- dim(dat)[1]
@@ -177,11 +183,12 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     off <- offset
   }
 
+  
   # Is there an intercept column?
   interceptcol <- apply(X==1, 2, all)
 
   ## Basic check to see if link and variance functions make any kind of sense
-  linkOfMean <- LinkFun(mean(Y[includedvec]))
+  linkOfMean <- LinkFun(mean(Y[includedvec])) - mean(off)
   
   if( any(is.infinite(linkOfMean) | is.nan(linkOfMean)) ){
     stop("Infinite or NaN in the link of the mean of responses.  Make sure link function makes sense for these data.")
@@ -363,7 +370,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     diag(StdErr) <- sqrt(1/VarFun(mu))
 
     if(!scale.fix){
-      phi <- updatePhi(Y, mu, VarFun, p, StdErr, included, includedlen, sqrtW)
+      phi <- updatePhi(Y, mu, VarFun, p, StdErr, included, includedlen, sqrtW, useP)
     }
     phi.new <- phi
     
@@ -371,19 +378,30 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
     ## Calculate alpha, R(alpha)^(-1) / phi
     if(cor.match == 2){
       # AR-1
-      alpha.new <- updateAlphaAR(Y, mu, VarFun, phi, id, len, StdErr, p, included, includedlen, includedvec, allobs, sqrtW, BlockDiag)
+      alpha.new <- updateAlphaAR(Y, mu, VarFun, phi, id, len,
+                                 StdErr, p, included, includedlen,
+                                 includedvec, allobs, sqrtW,
+                                 BlockDiag, useP)
       R.alpha.inv <- getAlphaInvAR(alpha.new, a1,a2,a3,a4, row.vec, col.vec)/phi
     }else if(cor.match == 3){
       #EXCHANGEABLE
-      alpha.new <- updateAlphaEX(Y, mu, VarFun, phi, id, len, StdErr, Resid, p, BlockDiag, included, includedlen, sqrtW)
+      alpha.new <- updateAlphaEX(Y, mu, VarFun, phi, id, len, StdErr,
+                                 Resid, p, BlockDiag, included,
+                                 includedlen, sqrtW, useP)
       #R.alpha.inv <- getAlphaInvEX(alpha.new, n.vec, BlockDiag)/phi
       R.alpha.inv <- getAlphaInvEX(alpha.new, n.vec, BlockDiag)/phi
     }else if(cor.match == 4){
       # M-DEPENDENT
       if(Mv==1){
-        alpha.new <- updateAlphaAR(Y, mu, VarFun, phi, id, len, StdErr, p, included, includedlen, includedvec, allobs, sqrtW, BlockDiag)
+        alpha.new <- updateAlphaAR(Y, mu, VarFun, phi, id, len,
+                                   StdErr, p, included, includedlen,
+                                   includedvec, allobs,
+                                   sqrtW, BlockDiag, useP)
       }else{
-        alpha.new <- updateAlphaMDEP(Y, mu, VarFun, phi, id, len, StdErr, Resid, p, BlockDiag, Mv, included, includedlen, allobs, sqrtW)
+        alpha.new <- updateAlphaMDEP(Y, mu, VarFun, phi, id, len,
+                                     StdErr, Resid, p, BlockDiag, Mv,
+                                     included, includedlen,
+                                     allobs, sqrtW, useP)
         if(sum(len>Mv) <= p){
           unstable <- T
         }
@@ -395,7 +413,10 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
       R.alpha.inv <- getAlphaInvMDEP(alpha.new, len, row.vec, col.vec)/phi
     }else if(cor.match == 5){
       # UNSTRUCTURED
-      alpha.new <- updateAlphaUnstruc(Y, mu, VarFun, phi, id, len, StdErr, Resid,  p, BlockDiag, included, includedlen, allobs, sqrtW)
+      alpha.new <- updateAlphaUnstruc(Y, mu, VarFun, phi, id, len,
+                                      StdErr, Resid,  p, BlockDiag,
+                                      included, includedlen, allobs,
+                                      sqrtW, useP)
       # This has happened to me (greater than 1 correlation estimate)
       if(any(alpha.new >= 1)){
         stop <- T
@@ -407,7 +428,10 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
       R.alpha.inv <- R.alpha.inv*phi.old/phi
     }else if(cor.match == 7){
       # USER SPECIFIED
-      alpha.new <- updateAlphaUser(Y, mu, phi, id, len, StdErr, Resid, p, BlockDiag, user.row, user.col, corr.list, included, includedlen, allobs, sqrtW)
+      alpha.new <- updateAlphaUser(Y, mu, phi, id, len, StdErr, Resid,
+                                   p, BlockDiag, user.row, user.col,
+                                   corr.list, included, includedlen,
+                                   allobs, sqrtW, useP)
       R.alpha.inv <- getAlphaInvUser(alpha.new, len, struct.vec, user.row, user.col, row.vec, col.vec)/phi
     }else if(cor.match == 1){
       # INDEPENDENT
@@ -497,18 +521,20 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(), family = gaussi
 
 
 ### Simple moment estimator of dispersion parameter
-updatePhi <- function(YY, mu, VarFun, p, StdErr, included, includedlen, sqrtW){
+updatePhi <- function(YY, mu, VarFun, p, StdErr, included, includedlen, sqrtW, useP){
   nn <- sum(includedlen)
   
   resid <- diag(StdErr %*% included %*% sqrtW %*% Diagonal(x = YY - mu))
-  phi <- (1/(sum(included)-p))*crossprod(resid, resid)
-
+  
+  phi <- (1/(sum(included)- useP * p))*crossprod(resid, resid)
+  
   return(as.numeric(phi))
 }
 
 ### Method to update coefficients.  Goes to a maximum of 10 iterations, or when
 ### rough convergence has been obtained.
-updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W, included){
+updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink,
+                      VarFun, R.alpha.inv, StdErr, dInvLinkdEta, tol, W, included){
   beta.new <- beta
   conv=F
   for(i in 1:10){
@@ -526,7 +552,7 @@ updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.
     
     
     update <- solve(hess, esteq)
-    if(max(abs(update)/beta.new) < 100*tol){break}
+    
     
     beta.new <- beta.new + as.vector(update)
 
@@ -535,7 +561,9 @@ updateBeta = function(YY, XX, beta, off, InvLinkDeriv, InvLink, VarFun, R.alpha.
 }
 
 ### Calculate the sandiwch estimator as usual.
-getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv, InvLink, VarFun, hessMat, StdErr, dInvLinkdEta, BlockDiag, W, included){
+getSandwich = function(YY, XX, eta, id, R.alpha.inv, phi, InvLinkDeriv,
+                       InvLink, VarFun, hessMat, StdErr, dInvLinkdEta,
+                       BlockDiag, W, included){
 
   diag(dInvLinkdEta) <- InvLinkDeriv(eta)
   mu <- InvLink(eta)
