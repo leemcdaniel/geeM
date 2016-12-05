@@ -5,7 +5,7 @@ Version: 0.10.0
 Authors@R: c(person("Lee", "McDaniel", role = c("aut", "cre"),email = "lmcda4@lsuhsc.edu"),
 			person("Nick", "Henderson", role = "aut"),
 			person("Melanie", "Prague", role = "ctb",comment = "Suggested code to fix weighting"))
-Date: 2016-7-18
+Date: 2016-12-5
 Author: Lee McDaniel [aut, cre],
     Nick Henderson [aut],
     Melanie Prague [ctb] (Suggested code to fix weighting)
@@ -16,7 +16,8 @@ Imports:
     stats,
     methods
 Suggests:
-    geepack
+    geepack,
+	testthat
 Description: GEE estimation of the parameters in mean structures with possible
     correlation between the outcomes. User-specified mean link and variance
     functions are allowed, along with observation weighting. The "M" in the name
@@ -24,4 +25,3 @@ Description: GEE estimation of the parameters in mean structures with possible
     implementation based fully in R.
 License: GPL-3
 ByteCompile: TRUE
-RoxygenNote: 5.0.1

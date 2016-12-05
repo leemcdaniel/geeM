@@ -1,4 +1,3 @@
-library(testthat)
 
 ### EXPECT ALL WILL GIVE THE SAME THING
 
