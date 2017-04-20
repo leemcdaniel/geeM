@@ -1,16 +1,16 @@
 
 if(require(geepack) & require(MuMIn)){
-  `getQIC.geem` <-
-    function(x, typeR = FALSE) {
-      
-      fam <- tryCatch(family(x)$family, error = function(e){return("quasi")})
-      
-      xi <- if(x$corr != "independence")
-        update(x, corstr = "independence") else x
-      MuMIn:::.qic2(x$y,  fitted(x), as.matrix(x$var),
-                    fitted(xi), as.matrix(xi$naiv.var), fam,
-                    typeR = typeR)
-    }
+  #`getQIC.geem` <-
+  #  function(x, typeR = FALSE) {
+  #    
+  #    fam <- tryCatch(family(x)$family, error = function(e){return("quasi")})
+  #    
+  #    xi <- if(x$corr != "independence")
+  ##      update(x, corstr = "independence") else x
+  #    MuMIn:::.qic2(x$y,  fitted(x), as.matrix(x$var),
+  #                  fitted(xi), as.matrix(xi$naiv.var), fam,
+  #                  typeR = typeR)
+  #  }
   
   
   
