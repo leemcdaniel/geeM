@@ -1,11 +1,11 @@
 Package: geeM
 Type: Package
 Title: Solve Generalized Estimating Equations
-Version: 0.10.0
+Version: 0.10.1
 Authors@R: c(person("Lee", "McDaniel", role = c("aut", "cre"),email = "lmcda4@lsuhsc.edu"),
 			person("Nick", "Henderson", role = "aut"),
 			person("Melanie", "Prague", role = "ctb",comment = "Suggested code to fix weighting"))
-Date: 2016-12-5
+Date: 2017-05-08
 Author: Lee McDaniel [aut, cre],
     Nick Henderson [aut],
     Melanie Prague [ctb] (Suggested code to fix weighting)

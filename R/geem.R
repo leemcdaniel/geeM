@@ -115,9 +115,9 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(),
       }
     }
 
-    #If there are gaps and correlation isn't exchangeable or independent
+    #If there are gaps and correlation isn't independent
     #then we'll add some dummy rows
-    if(!is.element(cor.match, c(1,3)) & (sum(incomp) > 0) & !nodummy){
+    if((cor.match != 1) & (sum(incomp) > 0) & !nodummy){
       dat <- dummyrows(formula, dat, incomp, maxwave, wavespl, idspl)
       id <- dat$id
       waves <- dat$waves
@@ -148,7 +148,7 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(),
     allobs <- F
     for(i in 1:length(unique(id))){
       if(all(!inclsplit[[i]])){
-        dropid <- c(dropid, i)
+        dropid <- c(dropid, unique(id)[i])
       }
     }
   }
@@ -288,16 +288,19 @@ geem <- function(formula, id, waves=NULL, data = parent.frame(),
     BlockDiag <- tmp$BDiag
 
     # Create a vector of length number of observations with associated cluster size for each observation
+    # n.vec <- vector("numeric", nn)
+    # index <- c(cumsum(len) - len, nn)
+    # for(i in 1:K){
+    #   n.vec[(index[i]+1) : index[i+1]] <-  rep(includedlen[i], len[i])
+    # }
+    
+    # Use this instead of the commented code above.  If values are missing, that provides information about
+    # the cluster sizes that should be used.
     n.vec <- vector("numeric", nn)
     index <- c(cumsum(len) - len, nn)
     for(i in 1:K){
-      n.vec[(index[i]+1) : index[i+1]] <-  rep(includedlen[i], len[i])
+     n.vec[(index[i]+1) : index[i+1]] <-  rep(len[i], len[i])
     }
-    #n.vec <- vector("numeric", nn)
-    #index <- c(cumsum(len) - len, nn)
-    #for(i in 1:K){
-    #  n.vec[(index[i]+1) : index[i+1]] <-  rep(len[i], len[i])
-    #}
   }else if(cor.match == 4){
     # M-DEPENDENT, check that M is not too large
     if(Mv >= max(len)){
